@@ -26,7 +26,9 @@ class Player {
 		this.radius = radius;
 		this.color = color;
 		this.score = 0;
-		this.alive = true;
+		this.isAlive = true;
+		this.damageDealt = 7;
+		this.pierceChance = 0.1;
 	}
 	
 	draw() {
@@ -44,6 +46,7 @@ class Projectile {
 		this.radius = radius;
 		this.color = color;
 		this.velocity = velocity;
+		this.isPiercing = Math.random() < player.pierceChance;
 	}
 
 	draw() {
@@ -121,7 +124,7 @@ function animate(timestamp) {
 		prevTimestamp = timestamp;
 	} else {
 		const deltaTime = timestamp - prevTimestamp;
-		if(deltaTime > 1500 - player.score * 10) {
+		if(deltaTime > 2100 - player.score * 7) {
 			spawnEnemy();
 			prevTimestamp = timestamp;
 		}
@@ -165,7 +168,7 @@ function animate(timestamp) {
 		const distancePlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
 		if(distancePlayer - player.radius - enemy.radius < 1) {
 			//if so end the game
-			player.alive = false;
+			player.isAlive = false;
 			const particleAmount = 20;
 			for(let i=0; i<particleAmount; i++) {
 				particles.push(
@@ -198,9 +201,22 @@ function animate(timestamp) {
 			if(
 				distanceProjectileToEnemy - enemy.radius - projectile.radius < 1
 			) {
+				let knockout;
+				enemy.radius - player.damageDealt <= 7 ? knockout = true : knockout = false;
+
 				setTimeout(() => {
-					if(enemy.radius < 18) {
-						for(let i=0; i<enemy.radius; i++){
+					if (!knockout) {
+						gsap.to(enemy, {
+							radius: enemy.radius - player.damageDealt
+						})
+						
+						enemy.velocity.x += projectile.velocity.x/7;
+						enemy.velocity.y += projectile.velocity.y/7;
+					} else {
+						bellSound.currentTime = 0;
+						bellSound.play();
+	
+						 for(let i=0; i<enemy.radius; i++){
 							particles.push(
 								new Particle(
 									enemy.x,
@@ -214,18 +230,17 @@ function animate(timestamp) {
 								))
 								
 						}
-						bellSound.currentTime = 0;
-						bellSound.play();
+	
 						enemies.splice(enemyIndex, 1);
 						player.score++;
+
+					}						
+
+					if(projectile.isPiercing && knockout) {
+						//do nothing, projectile pierces enemy
 					} else {
-						gsap.to(enemy, {
-							radius: enemy.radius - 10
-						})
-						enemy.velocity.x += projectile.velocity.x/7;
-						enemy.velocity.y += projectile.velocity.y/7;
+						projectiles.splice(projectileIndex, 1);
 					}
-					projectiles.splice(projectileIndex, 1);
 				}, 0)
 			}
 		})
@@ -249,7 +264,7 @@ function animate(timestamp) {
 function spawnEnemy() {
 	let x
 	let y
-	const radius = Math.random() * (30 - 7) + 7;
+	const radius = Math.random() * (30 - 10) + 10;
 
 	if(Math.random() < 0.5) {
 		x = Math.random() < 0.5 ? -radius : canvas.width + radius;
@@ -309,7 +324,7 @@ async function setQuote() {
 }
 
 addEventListener('click', (event) => {
-	if(player.alive === false || paused) return;
+	if(player.isAlive === false || paused) return;
 
 	whooshSound.currentTime = 0;
 	whooshSound.play();
@@ -341,7 +356,7 @@ addEventListener('resize', () => {
 
 addEventListener('keydown', (event) => {
 	console.log(enemies.length);
-	if(event.key === 'p' || event.key === 'P' || event.key === 'Escape' && player.alive) {
+	if(event.key === 'p' || event.key === 'P' || event.key === 'Escape' && player.isAlive) {
 		paused = !paused;
 		if(paused) {
 			cancelAnimationFrame(animationID);
