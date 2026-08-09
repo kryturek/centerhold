@@ -14,10 +14,57 @@ const quoteDOM = document.querySelector('#quote');
 const authorDOM = document.querySelector('#author');
 const startButtonDOM = document.querySelector('#startButton');
 
+const powerUpContainerDOM = document.querySelector('#powerUpContainer');
+const powerUpOption1DOM = document.querySelector('#option1');
+const powerUpOption1TextDOM = document.querySelector('#option1details');
+const powerUpOption2DOM = document.querySelector('#option2');
+const powerUpOption2TextDOM = document.querySelector('#option2details');
+
 const whooshSound = new Audio('./assets/whoosh.mp3');
 const bellSound = new Audio('./assets/bell.mp3');
+const deathSound = new Audio('./assets/You_Are_Dead!.mp3');
+const powerUpSound = new Audio('./assets/yoshiyuki_tatsuya-melting-excitement-519511.mp3');
 
 let paused = false;
+let powerUpScreenActive = false;
+
+const powerUpPool = [
+  {
+    key: 'damageDealt',
+    label: 'Damage dealt',
+    changeAmount: 2,
+    icon: 'assets/icons/damage.png',
+    unit: ''
+  },
+  {
+    key: 'pierceChance',
+    label: 'Pierce chance',
+    changeAmount: 0.05,
+    icon: 'assets/icons/pierce.png',
+    unit: '%'
+  },
+  {
+    key: 'critChance',
+    label: 'Crit chance',
+    changeAmount: 0.05,
+    icon: 'assets/icons/crit.png',
+    unit: '%'
+  },
+  {
+    key: 'radius',
+    label: 'Size increase',
+    changeAmount: 10,
+    icon: 'assets/icons/grow.png',
+    unit: 'px'
+  },
+  {
+    key: 'radius',
+    label: 'Size decrease',
+    changeAmount: -5,
+    icon: 'assets/icons/shrink.png',
+    unit: 'px'
+  }
+];
 
 class Player {
 	constructor(x, y, radius, color) {
@@ -29,6 +76,7 @@ class Player {
 		this.isAlive = true;
 		this.damageDealt = 7;
 		this.pierceChance = 0.1;
+		this.critChance = 0.2;
 	}
 	
 	draw() {
@@ -118,6 +166,11 @@ const particles = [];
 let animationID;
 let prevTimestamp;
 function animate(timestamp) {
+	if(paused || powerUpScreenActive) {
+		cancelAnimationFrame(animationID);
+		return;
+	}
+
 	animationID = requestAnimationFrame(animate);
 	
 	if(!prevTimestamp) {
@@ -169,6 +222,8 @@ function animate(timestamp) {
 		if(distancePlayer - player.radius - enemy.radius < 1) {
 			//if so end the game
 			player.isAlive = false;
+			deathSound.play();
+			
 			const particleAmount = 20;
 			for(let i=0; i<particleAmount; i++) {
 				particles.push(
@@ -202,7 +257,11 @@ function animate(timestamp) {
 				distanceProjectileToEnemy - enemy.radius - projectile.radius < 1
 			) {
 				let knockout;
-				enemy.radius - player.damageDealt <= 7 ? knockout = true : knockout = false;
+				if(Math.random() < player.critChance) {
+					knockout = true;
+				} else {
+					enemy.radius - player.damageDealt <= 7 ? knockout = true : knockout = false;
+				}
 
 				setTimeout(() => {
 					if (!knockout) {
@@ -303,6 +362,20 @@ function gameOver() {
 	gameOverDOM.style.visibility = 'visible';
 }
 
+function generatePowerUpScreen() {
+	const boxWidth = 400;
+	const boxHeight = 250;
+	powerUpContainerDOM.style.width = `${boxWidth}px`;
+	powerUpContainerDOM.style.height = `${boxHeight}px`;
+
+
+	powerUpContainerDOM.style.left = `${canvas.width/2 - boxWidth/2}px`
+	powerUpContainerDOM.style.top = `${canvas.height/2 - boxHeight/2}px`
+	
+	powerUpContainerDOM.style.visibility = 'visible';
+
+}
+
 async function setQuote() {
 	let quote, author
 	try {
@@ -324,7 +397,7 @@ async function setQuote() {
 }
 
 addEventListener('click', (event) => {
-	if(player.isAlive === false || paused) return;
+	if(player.isAlive === false || paused || powerUpScreenActive) return;
 
 	whooshSound.currentTime = 0;
 	whooshSound.play();
@@ -359,7 +432,7 @@ addEventListener('keydown', (event) => {
 	if(event.key === 'p' || event.key === 'P' || event.key === 'Escape' && player.isAlive) {
 		paused = !paused;
 		if(paused) {
-			cancelAnimationFrame(animationID);
+			// cancelAnimationFrame(animationID);
 
 			c.fillStyle = `rgba(75, 31, 31, 0.5)`
 			c.fillRect(0, 0, canvas.width, canvas.height);
@@ -372,8 +445,20 @@ addEventListener('keydown', (event) => {
 			animate();
 		}
 	}
+	if(event.key === 'r' || event.key === 'R' && player.isAlive) {
+		powerUpScreenActive = !powerUpScreenActive;
+		if (powerUpScreenActive) {
+			powerUpSound.currentTime = 0;
+			powerUpSound.play();
+			generatePowerUpScreen();
+			powerUpContainerDOM.style.visibility = 'visible';
+		} else {
+			powerUpSound.pause();
+			powerUpContainerDOM.style.visibility = 'hidden';
+			animate();
+		}
+	}
 })
-
 
 newGame();
 

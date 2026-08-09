@@ -38,6 +38,35 @@
 
 		}
 
+		#powerUpContainer {
+			position: fixed;
+			background-color: white;
+			visibility: hidden;
+			opacity: 0.8;
+			color: black;
+			font-family: monospace;
+			padding: 7px;
+
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 20px;
+		}
+
+		.powerUpOption {
+			width: 100%;
+			height: 100%;
+			background-color: rgb(129, 129, 129);
+			display: grid;
+			justify-items: center;
+			align-items: center;
+			grid-template-rows: 4fr 1fr;
+		}
+
+		.powerUpOption:hover {
+			background-color: rgb(150, 150, 150);
+			cursor: pointer;
+		}
+
 		#gameOver {
 			position: fixed;
 			background-color: white;
@@ -101,6 +130,23 @@
 </head>
 <body>
 	<div id="scoreContainer"><span id="score"></span></div>
+
+	<div id="powerUpContainer">
+		<div id="option1" class="powerUpOption">
+			<div class="powerUpImage" id="option1Image">
+				<img src="./assets/air-staff.webp" alt="">
+			</div>
+			<div class="powerUpDetails" id="option1details">Damage dealt +2</div>
+		</div>
+		<div id="option2" class="powerUpOption">
+			<div class="powerUpImage" id="option2Image">
+				<img src="./assets/air_rune.webp" alt="">
+			</div>
+			<div class="powerUpDetails" id="option2details">Crit chance +5%</div>
+
+		</div>
+	</div>
+
 	<div id="gameOver">
 		<div id="gameOverScoreContainer">
 			<span id="gameOverScore"></span>
