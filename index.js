@@ -6,11 +6,16 @@ const c = canvas.getContext('2d');
 canvas.width = innerWidth;
 canvas.height = innerHeight;
 
+// DOM elements
 const scoreDOM = document.querySelector('#score');
 const gameOverDOM = document.querySelector('#gameOver');
 const gameOverScoreDOM = document.querySelector('#gameOverScore')
 const quoteDOM = document.querySelector('#quote');
 const authorDOM = document.querySelector('#author');
+const startButtonDOM = document.querySelector('#startButton');
+
+const whooshSound = new Audio('./assets/whoosh.mp3');
+const bellSound = new Audio('./assets/bell.mp3');
 
 class Player {
 	constructor(x, y, radius, color) {
@@ -113,7 +118,7 @@ function animate(timestamp) {
 		prevTimestamp = timestamp;
 	} else {
 		const deltaTime = timestamp - prevTimestamp;
-		if(deltaTime > 1500) {
+		if(deltaTime > 1500 - player.score * 10) {
 			spawnEnemy();
 			prevTimestamp = timestamp;
 		}
@@ -166,7 +171,7 @@ function animate(timestamp) {
 			setTimeout(() => {
 				cancelAnimationFrame(animationID);
 				gameOver();
-			}, 1500)
+			}, 1000)
 		}
 
 
@@ -196,7 +201,7 @@ function animate(timestamp) {
 						}
 						enemies.splice(enemyIndex, 1);
 						player.score++;
-						console.log(player.score);
+						bellSound.play();
 					} else {
 						gsap.to(enemy, {
 							radius: enemy.radius - 10
@@ -289,11 +294,15 @@ async function setQuote() {
 }
 
 addEventListener('click', (event) => {
+	whooshSound.currentTime = 0;
+	whooshSound.play();
+
 	const angle = Math.atan2(event.clientY - canvas.height/2, event.clientX - canvas.width /2);
 	const hypot = Math.hypot(event.clientX - player.x, event.clientY - player.y);
 
 	//speed multiplier capped at 5
 	const speedFactor = hypot/(canvas.width/2) * 5;
+
 
 	projectiles.push(
 		new Projectile(
@@ -314,3 +323,22 @@ addEventListener('keydown', () => {
 
 animate();
 setQuote();
+
+startButtonDOM.addEventListener('click', () => {
+	gameOverDOM.style.visibility = 'hidden';
+	
+	animate();
+	setQuote();
+	
+	setup();
+})
+
+function setup() {
+	player.x = canvas.width / 2;
+	player.y = canvas.height / 2;
+	player.score = 0;
+
+	projectiles.length = 0;
+	enemies.length = 0;
+	particles.length = 0;
+}
