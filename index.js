@@ -17,6 +17,8 @@ const startButtonDOM = document.querySelector('#startButton');
 const whooshSound = new Audio('./assets/whoosh.mp3');
 const bellSound = new Audio('./assets/bell.mp3');
 
+let paused = false;
+
 class Player {
 	constructor(x, y, radius, color) {
 		this.x = x;
@@ -24,6 +26,7 @@ class Player {
 		this.radius = radius;
 		this.color = color;
 		this.score = 0;
+		this.alive = true;
 	}
 	
 	draw() {
@@ -104,7 +107,7 @@ class Particle {
 	}
 }
 
-const player = new Player(canvas.width / 2, canvas.height / 2, 15, 'rgb(223, 223, 223)');
+let player = new Player(canvas.width / 2, canvas.height / 2, 15, 'rgb(223, 223, 223)');
 const projectiles = [];
 const enemies = [];
 const particles = [];
@@ -146,11 +149,23 @@ function animate(timestamp) {
 
 
 	enemies.forEach((enemy, enemyIndex) => {
+		//if enemy out of bounds remove it
+		if(
+			enemy.x - enemy.radius > canvas.width + 100
+			|| enemy.x + enemy.radius < -100
+			|| enemy.y - enemy.radius > canvas.height + 100
+			|| enemy.y + enemy.radius < -100
+		) {
+			enemies.splice(enemyIndex, 1);
+		}
+
+
 		enemy.update();
 		// enemy <-> player
 		const distancePlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
 		if(distancePlayer - player.radius - enemy.radius < 1) {
 			//if so end the game
+			player.alive = false;
 			const particleAmount = 45;
 			for(let i=0; i<particleAmount; i++) {
 				particles.push(
@@ -166,7 +181,7 @@ function animate(timestamp) {
 					)
 				)
 			}
-			player.x = -100;
+			player.radius = 0;
 
 			setTimeout(() => {
 				cancelAnimationFrame(animationID);
@@ -199,15 +214,16 @@ function animate(timestamp) {
 								))
 								
 						}
+						bellSound.currentTime = 0;
+						bellSound.play();
 						enemies.splice(enemyIndex, 1);
 						player.score++;
-						bellSound.play();
 					} else {
 						gsap.to(enemy, {
 							radius: enemy.radius - 10
 						})
-						enemy.velocity.x *= 0.5;
-						enemy.velocity.y *= 0.5;
+						enemy.velocity.x += projectile.velocity.x/7;
+						enemy.velocity.y += projectile.velocity.y/7;
 					}
 					projectiles.splice(projectileIndex, 1);
 				}, 0)
@@ -237,11 +253,11 @@ function spawnEnemy() {
 	const radius = Math.random() * (30 - 7) + 7;
 
 	if(Math.random() < 0.5) {
-		x = Math.random() < 0.5 ? - radius : canvas.width + radius;
+		x = Math.random() < 0.5 ? -radius : canvas.width + radius;
 		y = Math.random() * canvas.height;
 	} else {
 		x = Math.random() * canvas.width;
-		y = Math.random() < 0.5 ? - radius : canvas.height + radius;
+		y = Math.random() < 0.5 ? -radius : canvas.height + radius;
 	}
 
 	const hue = Math.floor(Math.random()*361)
@@ -294,6 +310,8 @@ async function setQuote() {
 }
 
 addEventListener('click', (event) => {
+	if(player.alive === false || paused) return;
+
 	whooshSound.currentTime = 0;
 	whooshSound.play();
 
@@ -317,9 +335,31 @@ addEventListener('click', (event) => {
 		));
 })
 
-addEventListener('keydown', () => {
-	console.log(particles)
+addEventListener('resize', () => {
+	canvas.width = innerWidth;
+	canvas.height = innerHeight;
 })
+
+addEventListener('keydown', (event) => {
+	console.log(enemies.length);
+	if(event.key === 'p' || event.key === 'P' || event.key === 'Escape' && player.alive) {
+		paused = !paused;
+		if(paused) {
+			cancelAnimationFrame(animationID);
+
+			c.fillStyle = `rgba(75, 31, 31, 0.5)`
+			c.fillRect(0, 0, canvas.width, canvas.height);
+			c.fillStyle = 'white';
+			c.font = '81px Blocky';
+			c.textAlign = 'center';
+			c.fillText('PAUSED', canvas.width/2, canvas.height/2);
+		} else {
+			prevTimestamp = null;
+			animate();
+		}
+	}
+})
+
 
 animate();
 setQuote();
@@ -327,18 +367,21 @@ setQuote();
 startButtonDOM.addEventListener('click', () => {
 	gameOverDOM.style.visibility = 'hidden';
 	
-	animate();
-	setQuote();
-	
 	setup();
+	animate();
+	
 })
 
 function setup() {
-	player.x = canvas.width / 2;
-	player.y = canvas.height / 2;
-	player.score = 0;
+	player = new Player(canvas.width / 2, canvas.height / 2, 15, 'rgb(223, 223, 223)');
+	// player.x = canvas.width / 2;
+	// player.y = canvas.height / 2;
+	// player.score = 0;
+	// player.alive = true;
 
 	projectiles.length = 0;
 	enemies.length = 0;
 	particles.length = 0;
+
+	setQuote();
 }
