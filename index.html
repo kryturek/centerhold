@@ -46,25 +46,64 @@
 			font-family: monospace;
 			padding: 7px;
 
+			display: grid;
+			grid-template-columns: 1fr;
+			grid-template-rows: 1fr 3fr 1fr;
+			gap: 20px;
+
+			justify-items: center;
+			font-size: 14px;
+		}
+
+		#gameOverScoreContainer {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			padding-top: 10px;
 		}
 
 		#gameOver button {
-			position: absolute;
+			/* position: absolute; */
 			background-color: black;
 			color: white;
 			font-family: monospace;
 			font-size: 20px;
 			padding: 5px;
-			bottom: 20px;
-			width: 70%;
+			width: 100%;
+			margin: 0 auto;
+		}
+
+		#quoteContainer {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			margin: 0 15px;
+		}
+
+		#quote {
+			font-style: italic;
+			display: block;
+			/* center text */
+			text-align: center;
+		}
+
+		#author {
+			display: block;
+			text-align: center;
 		}
 	</style>
 </head>
 <body>
 	<div id="scoreContainer"><span id="score"></span></div>
 	<div id="gameOver">
-		Score: <span id="gameOverScore"></span>
-		<div id="quoteContainer"></div>
+		<div id="gameOverScoreContainer">
+			Score: <span id="gameOverScore"></span>
+		</div>
+		<div id="quoteContainer">
+			<span id="quote"></span>
+			<span id="author"></span>
+		</div>
 		<button>Start</button>
 	</div>
 	<canvas></canvas>

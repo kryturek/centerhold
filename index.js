@@ -9,6 +9,8 @@ canvas.height = innerHeight;
 const scoreDOM = document.querySelector('#score');
 const gameOverDOM = document.querySelector('#gameOver');
 const gameOverScoreDOM = document.querySelector('#gameOverScore')
+const quoteDOM = document.querySelector('#quote');
+const authorDOM = document.querySelector('#author');
 
 class Player {
 	constructor(x, y, radius, color) {
@@ -266,6 +268,26 @@ function gameOver() {
 	gameOverDOM.style.visibility = 'visible';
 }
 
+async function setQuote() {
+	let quote, author
+	try {
+		const response = await fetch('https://random-quotes-freeapi.vercel.app/api/random')
+		const data = await response.json();
+
+		quote = data.quote;
+		author = data.author;
+
+		console.log(`${quote} - ${author}`);
+	} catch (e) {
+		console.error("Failed to fetch quote data: ", e);
+		const quote = "Don't ever, for any reason, do anything to anyone for any reason ever, no matter what, no matter where, or who, or who you are with, or where you are going, or where you've been...  ever, for any reason whatsoever."
+		const author = 'Michael Scott'
+	}
+
+	quoteDOM.innerHTML = `"${quote}"`;
+	authorDOM.innerHTML = `- ${author}`;
+}
+
 addEventListener('click', (event) => {
 	const angle = Math.atan2(event.clientY - canvas.height/2, event.clientX - canvas.width /2);
 	const hypot = Math.hypot(event.clientX - player.x, event.clientY - player.y);
@@ -291,3 +313,4 @@ addEventListener('keydown', () => {
 })
 
 animate();
+setQuote();
