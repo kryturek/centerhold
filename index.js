@@ -166,7 +166,7 @@ function animate(timestamp) {
 		if(distancePlayer - player.radius - enemy.radius < 1) {
 			//if so end the game
 			player.alive = false;
-			const particleAmount = 45;
+			const particleAmount = 20;
 			for(let i=0; i<particleAmount; i++) {
 				particles.push(
 					new Particle(
@@ -175,8 +175,8 @@ function animate(timestamp) {
 						Math.random()+0.4,
 						`hsl(${360/particleAmount * i}, 70%, 50%)`,
 						{
-							x: (Math.random()-0.5)*5 + enemy.velocity.x*2,
-							y: (Math.random()-0.5)*5 + enemy.velocity.y*2
+							x: (Math.random()-0.5)*10 + enemy.velocity.x*5,
+							y: (Math.random()-0.5)*10 + enemy.velocity.y*5
 						}
 					)
 				)
@@ -238,7 +238,6 @@ function animate(timestamp) {
 			|| particle.x + particle.radius < 0
 			|| particle.y - particle.radius > canvas.height
 			|| particle.y + particle.radius < 0
-			// Math.hypot(player.x - particle.x, player.y - particle.y) > 200
 		) {
 			particles.splice(index, 1);
 		}
@@ -361,27 +360,26 @@ addEventListener('keydown', (event) => {
 })
 
 
-animate();
-setQuote();
+newGame();
 
 startButtonDOM.addEventListener('click', () => {
 	gameOverDOM.style.visibility = 'hidden';
 	
-	setup();
-	animate();
+	newGame();
 	
 })
 
 function setup() {
 	player = new Player(canvas.width / 2, canvas.height / 2, 15, 'rgb(223, 223, 223)');
-	// player.x = canvas.width / 2;
-	// player.y = canvas.height / 2;
-	// player.score = 0;
-	// player.alive = true;
 
 	projectiles.length = 0;
 	enemies.length = 0;
 	particles.length = 0;
 
 	setQuote();
+}
+
+function newGame() {
+	setup();
+	animate();
 }
