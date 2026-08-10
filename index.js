@@ -21,6 +21,9 @@ const bellSound = new Audio('./assets/bell.mp3');
 const deathSound = new Audio('./assets/You_Are_Dead!.mp3');
 const upgradeSound = new Audio('./assets/yoshiyuki_tatsuya-melting-excitement-519511.mp3');
 
+const playerImage = new Image();
+playerImage.src = './assets/player.svg';
+
 let paused = false;
 let upgradeModalActive = false;
 
@@ -28,37 +31,44 @@ const upgradePool = [
   {
     key: 'damageDealt',
     label: 'Damage dealt',
-    changeAmount: 2,
+    changeAmount: Math.floor(Math.random() * 5) + 2,
     icon: 'assets/icons/damage.png',
     unit: ''
   },
   {
     key: 'pierceChance',
     label: 'Pierce chance',
-    changeAmount: 0.05,
+    changeAmount: Math.floor((Math.random() * 15) + 2) / 100,
     icon: 'assets/icons/pierce.png',
     unit: '%'
   },
   {
     key: 'critChance',
     label: 'Crit chance',
-    changeAmount: 0.05,
+    changeAmount: Math.floor((Math.random() * 11) + 2) / 100,
     icon: 'assets/icons/crit.png',
     unit: '%'
   },
   {
     key: 'radius',
     label: 'Size increase',
-    changeAmount: 10,
+    changeAmount: Math.floor(Math.random() * 7) + 2,
     icon: 'assets/icons/grow.png',
     unit: 'px'
   },
   {
     key: 'radius',
     label: 'Size decrease',
-    changeAmount: -5,
+    changeAmount: -Math.floor(Math.random() * 7) + 2, // note the minus in front
     icon: 'assets/icons/shrink.png',
     unit: 'px'
+  },
+  {
+	key: 'rotationSpeed',
+	label: 'Rotation speed',
+	changeAmount: Math.floor((Math.random() * 25) + 1) / 100,
+	icon: 'assets/icons/rotate.png',
+	unit: '%'
   }
 ];
 
@@ -68,6 +78,8 @@ class Player {
 		this.y = y;
 		this.radius = radius;
 		this.color = color;
+		this.rotation = 0;
+		this.rotationSpeed = 0.03;
 		this.score = 0;
 		this.isAlive = true;
 		this.damageDealt = 7;
@@ -76,15 +88,13 @@ class Player {
 	}
 	
 	draw() {
-		// c.beginPath();
-		// c.fillStyle = this.color;
-		// c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-		// c.fill();
+		this.rotation += this.rotationSpeed;
 
-		//instead of drawing the player, use an svg image of a character
-		const playerImage = new Image();
-		playerImage.src = './assets/player.svg';
-		c.drawImage(playerImage, this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
+		c.save();
+		c.translate(this.x, this.y);
+		c.rotate(this.rotation);
+		c.drawImage(playerImage, -this.radius, -this.radius, this.radius * 2, this.radius * 2);
+		c.restore();
 	}
 }
 
@@ -526,19 +536,19 @@ addEventListener('keydown', (event) => {
 			animate();
 		}
 	}
-	if(event.key === 'r' || event.key === 'R' && player.isAlive) {
-		upgradeModalActive = !upgradeModalActive;
-		if (upgradeModalActive) {
-			upgradeSound.currentTime = 0;
-			upgradeSound.play();
-			generateUpgradeModal();
-			triggerUpgradeModal();
-		} else {
-			upgradeSound.pause();
-			upgradeModalDOM.style.visibility = 'hidden';
-			animate();
-		}
-	}
+	// if(event.key === 'r' || event.key === 'R' && player.isAlive) {
+	// 	upgradeModalActive = !upgradeModalActive;
+	// 	if (upgradeModalActive) {
+	// 		upgradeSound.currentTime = 0;
+	// 		upgradeSound.play();
+	// 		generateUpgradeModal();
+	// 		triggerUpgradeModal();
+	// 	} else {
+	// 		upgradeSound.pause();
+	// 		upgradeModalDOM.style.visibility = 'hidden';
+	// 		animate();
+	// 	}
+	// }
 })
 
 newGame();
