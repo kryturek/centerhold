@@ -20,6 +20,10 @@
 			font-style: normal;
 		}
 
+		.hidden {
+			visibility: hidden;
+		}
+
 		#scoreContainer {
 			position: fixed;
 			display: flex;
@@ -38,32 +42,48 @@
 
 		}
 
-		#powerUpContainer {
+		#upgradeModal {
 			position: fixed;
 			background-color: white;
-			visibility: hidden;
 			opacity: 0.8;
 			color: black;
 			font-family: monospace;
-			padding: 7px;
+			padding: 15px;
+
+			font-size: 16px;
 
 			display: grid;
 			grid-template-columns: 1fr 1fr;
 			gap: 20px;
 		}
 
-		.powerUpOption {
+		.upgradeOption {
 			width: 100%;
 			height: 100%;
-			background-color: rgb(129, 129, 129);
+			background-color: rgb(165, 163, 163);
 			display: grid;
 			justify-items: center;
 			align-items: center;
 			grid-template-rows: 4fr 1fr;
 		}
 
-		.powerUpOption:hover {
-			background-color: rgb(150, 150, 150);
+		.upgradeImage {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+		}
+
+		.upgradeOption img {
+			max-width: 90%;
+			max-height: 100%;
+			width: auto;
+			height: auto;
+			margin: 0 auto;
+			object-fit: contain;
+		}
+
+		.upgradeOption:hover {
+			background-color: rgb(204, 203, 203);
 			cursor: pointer;
 		}
 
@@ -131,20 +151,7 @@
 <body>
 	<div id="scoreContainer"><span id="score"></span></div>
 
-	<div id="powerUpContainer">
-		<div id="option1" class="powerUpOption">
-			<div class="powerUpImage" id="option1Image">
-				<img src="./assets/air-staff.webp" alt="">
-			</div>
-			<div class="powerUpDetails" id="option1details">Damage dealt +2</div>
-		</div>
-		<div id="option2" class="powerUpOption">
-			<div class="powerUpImage" id="option2Image">
-				<img src="./assets/air_rune.webp" alt="">
-			</div>
-			<div class="powerUpDetails" id="option2details">Crit chance +5%</div>
-
-		</div>
+	<div id="upgradeModal" class="hidden">
 	</div>
 
 	<div id="gameOver">

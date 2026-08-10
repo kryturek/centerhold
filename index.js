@@ -14,21 +14,17 @@ const quoteDOM = document.querySelector('#quote');
 const authorDOM = document.querySelector('#author');
 const startButtonDOM = document.querySelector('#startButton');
 
-const powerUpContainerDOM = document.querySelector('#powerUpContainer');
-const powerUpOption1DOM = document.querySelector('#option1');
-const powerUpOption1TextDOM = document.querySelector('#option1details');
-const powerUpOption2DOM = document.querySelector('#option2');
-const powerUpOption2TextDOM = document.querySelector('#option2details');
+const upgradeModalDOM = document.querySelector('#upgradeModal');
 
 const whooshSound = new Audio('./assets/whoosh.mp3');
 const bellSound = new Audio('./assets/bell.mp3');
 const deathSound = new Audio('./assets/You_Are_Dead!.mp3');
-const powerUpSound = new Audio('./assets/yoshiyuki_tatsuya-melting-excitement-519511.mp3');
+const upgradeSound = new Audio('./assets/yoshiyuki_tatsuya-melting-excitement-519511.mp3');
 
 let paused = false;
-let powerUpScreenActive = false;
+let upgradeModalActive = false;
 
-const powerUpPool = [
+const upgradePool = [
   {
     key: 'damageDealt',
     label: 'Damage dealt',
@@ -76,14 +72,19 @@ class Player {
 		this.isAlive = true;
 		this.damageDealt = 7;
 		this.pierceChance = 0.1;
-		this.critChance = 0.2;
+		this.critChance = 0.1;
 	}
 	
 	draw() {
-		c.beginPath();
-		c.fillStyle = this.color;
-		c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-		c.fill();
+		// c.beginPath();
+		// c.fillStyle = this.color;
+		// c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+		// c.fill();
+
+		//instead of drawing the player, use an svg image of a character
+		const playerImage = new Image();
+		playerImage.src = './assets/player.svg';
+		c.drawImage(playerImage, this.x - this.radius, this.y - this.radius, this.radius * 2, this.radius * 2);
 	}
 }
 
@@ -166,7 +167,7 @@ const particles = [];
 let animationID;
 let prevTimestamp;
 function animate(timestamp) {
-	if(paused || powerUpScreenActive) {
+	if(paused || upgradeModalActive) {
 		cancelAnimationFrame(animationID);
 		return;
 	}
@@ -201,7 +202,14 @@ function animate(timestamp) {
 			}, 0)
 		}
 	})
-
+	
+	if(player.score > 0 && player.score % 11 === 0 && !upgradeModalActive) {
+		upgradeSound.currentTime = 0;
+		upgradeSound.play();
+		generateUpgradeModal();
+		triggerUpgradeModal();
+		player.score+=0.1; //to prevent the modal from triggering multiple times for the same score
+	}
 
 
 	enemies.forEach((enemy, enemyIndex) => {
@@ -269,8 +277,8 @@ function animate(timestamp) {
 							radius: enemy.radius - player.damageDealt
 						})
 						
-						enemy.velocity.x += projectile.velocity.x/7;
-						enemy.velocity.y += projectile.velocity.y/7;
+						enemy.velocity.x += projectile.velocity.x/11;
+						enemy.velocity.y += projectile.velocity.y/11;
 					} else {
 						bellSound.currentTime = 0;
 						bellSound.play();
@@ -292,6 +300,7 @@ function animate(timestamp) {
 	
 						enemies.splice(enemyIndex, 1);
 						player.score++;
+						player.score = Math.floor(player.score);
 
 					}						
 
@@ -317,7 +326,7 @@ function animate(timestamp) {
 		}
 	})
 
-	scoreDOM.innerHTML = player.score;
+	scoreDOM.innerHTML = Math.floor(player.score);
 }
 
 function spawnEnemy() {
@@ -362,18 +371,15 @@ function gameOver() {
 	gameOverDOM.style.visibility = 'visible';
 }
 
-function generatePowerUpScreen() {
+function generateUpgradeModal() {
 	const boxWidth = 400;
 	const boxHeight = 250;
-	powerUpContainerDOM.style.width = `${boxWidth}px`;
-	powerUpContainerDOM.style.height = `${boxHeight}px`;
+	upgradeModalDOM.style.width = `${boxWidth}px`;
+	upgradeModalDOM.style.height = `${boxHeight}px`;
 
 
-	powerUpContainerDOM.style.left = `${canvas.width/2 - boxWidth/2}px`
-	powerUpContainerDOM.style.top = `${canvas.height/2 - boxHeight/2}px`
-	
-	powerUpContainerDOM.style.visibility = 'visible';
-
+	upgradeModalDOM.style.left = `${canvas.width/2 - boxWidth/2}px`
+	upgradeModalDOM.style.top = `${canvas.height/2 - boxHeight/2}px`
 }
 
 async function setQuote() {
@@ -396,8 +402,83 @@ async function setQuote() {
 	authorDOM.innerHTML = `- ${author}`;
 }
 
+function getRandomUpgrades(pool, count) {
+	const shuffled = [...pool].sort(() => 0.5 - Math.random());
+	return shuffled.slice(0, count);
+}
+
+function triggerUpgradeModal() {
+	upgradeModalActive = true;
+
+	//reset the contents
+	upgradeModalDOM.innerHTML = '';
+
+	//get 2 random upgrades from the pool
+	const theTwoRandomUpgrades = getRandomUpgrades(upgradePool, 2);
+
+	theTwoRandomUpgrades.forEach((upgrade, index) => {
+		const formattedValue = upgrade.unit === '%'
+			? `+${upgrade.changeAmount * 100}%`
+			: `+${upgrade.changeAmount}${upgrade.unit}`;
+		
+		//create the upgrade option child div
+		const optionDiv = document.createElement('div');
+		optionDiv.id = `option${index + 1}`;
+		optionDiv.className = 'upgradeOption';
+
+		// store target property and changeAmount on the div itself
+		optionDiv.dataset.prop = upgrade.key;
+		optionDiv.dataset.amount = upgrade.changeAmount;
+
+		//populate the innerHTML of the optionDiv with the upgrade details
+		optionDiv.innerHTML = `
+			<div class="upgradeImage" id="option${index+1}Image">
+				<img src="./${upgrade.icon}" alt="${upgrade.label}" />
+			</div>
+			<div class="upgradeDetails" id="option${index+1}Details">
+				<span>${upgrade.label} ${formattedValue}</span>
+			</div>
+		`;
+
+		// append the child div to the upgrade modal
+		upgradeModalDOM.appendChild(optionDiv);
+	})
+
+	// show the upgrade modal
+	upgradeModalDOM.classList.remove('hidden');
+}
+
+
+upgradeModalDOM.addEventListener('click', (ev) => {
+	// check if the clicked element is an upgrade option or a child of it
+	const selectedOption = ev.target.closest('.upgradeOption');
+
+	// if clicked outside of an option, do nothing
+	if (!selectedOption) return;
+
+	// extract the prop and amount from HTML dataset attributes
+	const prop = selectedOption.dataset.prop;
+	const amount = parseFloat(selectedOption.dataset.amount);
+
+	// update player's prop by amount
+	if (player.hasOwnProperty(prop)) {
+		player[prop] += amount;
+		console.log(`Upgraded ${prop} by ${amount}. New value: ${player[prop]}`);
+	}
+	
+	// hide the upgrade modal
+	closeUpgradeModal();
+})
+
+function closeUpgradeModal() {
+	upgradeModalActive = false;
+	upgradeModalDOM.classList.add('hidden');
+	upgradeSound.pause();
+	animate();
+}
+
 addEventListener('click', (event) => {
-	if(player.isAlive === false || paused || powerUpScreenActive) return;
+	if(player.isAlive === false || paused || upgradeModalActive) return;
 
 	whooshSound.currentTime = 0;
 	whooshSound.play();
@@ -446,15 +527,15 @@ addEventListener('keydown', (event) => {
 		}
 	}
 	if(event.key === 'r' || event.key === 'R' && player.isAlive) {
-		powerUpScreenActive = !powerUpScreenActive;
-		if (powerUpScreenActive) {
-			powerUpSound.currentTime = 0;
-			powerUpSound.play();
-			generatePowerUpScreen();
-			powerUpContainerDOM.style.visibility = 'visible';
+		upgradeModalActive = !upgradeModalActive;
+		if (upgradeModalActive) {
+			upgradeSound.currentTime = 0;
+			upgradeSound.play();
+			generateUpgradeModal();
+			triggerUpgradeModal();
 		} else {
-			powerUpSound.pause();
-			powerUpContainerDOM.style.visibility = 'hidden';
+			upgradeSound.pause();
+			upgradeModalDOM.style.visibility = 'hidden';
 			animate();
 		}
 	}
@@ -477,6 +558,7 @@ function setup() {
 	particles.length = 0;
 
 	setQuote();
+	generateUpgradeModal();
 }
 
 function newGame() {
