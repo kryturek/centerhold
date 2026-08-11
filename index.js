@@ -27,11 +27,13 @@ playerImage.src = './assets/player.svg';
 let paused = false;
 let upgradeModalActive = false;
 
+const upgradeLevels = [3, 7, 12, 20, 30, 50, 75, 100, 140, 180, 250, 350, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000];
+
 const upgradePool = [
   {
     key: 'damageDealt',
     label: 'Damage dealt',
-    changeAmount: Math.floor(Math.random() * 5) + 2,
+    changeAmount: 3,
     icon: 'assets/icons/damage.png',
     unit: '',
 	limit: 50
@@ -39,7 +41,7 @@ const upgradePool = [
   {
     key: 'pierceChance',
     label: 'Pierce chance',
-    changeAmount: Math.floor((Math.random() * 15) + 2) / 100,
+    changeAmount: 0.05,
     icon: 'assets/icons/pierce.png',
     unit: '%',
 	limit: 0.5
@@ -47,7 +49,7 @@ const upgradePool = [
   {
     key: 'critChance',
     label: 'Crit chance',
-    changeAmount: Math.floor((Math.random() * 11) + 2) / 100,
+    changeAmount: 0.03,
     icon: 'assets/icons/crit.png',
     unit: '%',
 	limit: 0.5
@@ -55,18 +57,10 @@ const upgradePool = [
   {
     key: 'radius',
     label: 'Size increase',
-    changeAmount: Math.floor(Math.random() * 5) + 2,
+    changeAmount: 5,
     icon: 'assets/icons/grow.png',
     unit: 'px',
 	limit: 50
-  },
-  {
-    key: 'radius',
-    label: 'Size decrease',
-    changeAmount: -Math.floor(Math.random() * 5) + 2, // note the minus in front
-    icon: 'assets/icons/shrink.png',
-    unit: 'px',
-	limit: 10
   },
   {
 	key: 'rotationMultiplier',
@@ -88,10 +82,11 @@ class Player {
 		this.rotationSpeed = 0.01;
 		this.rotationMultiplier = 1;
 		this.score = 0;
+		this.currentUpgradeIndex = 0;
 		this.isAlive = true;
 		this.damageDealt = 5;
-		this.pierceChance = 0.01;
-		this.critChance = 0.01;
+		this.pierceChance = 0.03;
+		this.critChance = 0.02;
 		this.bounceChance = 0.3;
 	}
 	
@@ -108,7 +103,7 @@ class Player {
 
 class Projectile {
 	constructor(x, y, radius, color, velocity) {
-		this.lifespan = 1000; // time measured in frames
+		this.lifespan = 3000; // time measured in frames
 		this.isPiercing = Math.random() < player.pierceChance;
 		this.isCritical = Math.random() < player.critChance;
 		this.isBouncy = this.isPiercing && this.isCritical && Math.random() < player.bounceChance;
@@ -116,7 +111,7 @@ class Projectile {
 		this.y = y;
 		this.radius = radius;
 		this.color = this.isBouncy ?
-						'rgb(255, 198, 10)' :
+						`rgb(255, 198, 10)` :
 							this.isCritical && this.isPiercing ?
 							'rgb(164, 7, 255)' :
 							this.isCritical ?
@@ -128,10 +123,14 @@ class Projectile {
 	}
 
 	draw() {
+		c.save();
 		c.beginPath();
+		c.shadowColor = this.color;
+		c.shadowBlur = 5;
 		c.fillStyle = this.color;
 		c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
 		c.fill();
+		c.restore();
 	}
 
 	update() {
@@ -151,19 +150,37 @@ class Enemy {
 		this.color = color;
 		this.velocity = velocity;
 		this.immunityFrames = 0;
+		this.rotation = 0;
+		this.rotationSpeed = 0.01;
+		this.velocityMagnitude = 1;
 	}
 
 	draw() {
+		this.rotation += this.rotationSpeed * this.velocityMagnitude;
+
+		c.save();
+		c.translate(this.x, this.y);
+		c.rotate(this.rotation);
+
 		c.beginPath();
 		c.fillStyle = this.color;
-		c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+		c.arc(0, 0, this.radius, 0, Math.PI * 2);
 		c.fill();
+
+		c.beginPath();
+		c.fillStyle = 'rgba(255, 255, 255, 0.2)';
+		// c.arc(Math.random()*this.radius*0.2+this.radius*0.2, 0, Math.random*this.radius*0.5, 0, Math.PI * 2);
+		c.arc(this.radius*0.3, 0, this.radius*0.5, 0, Math.PI * 2);
+		c.fill();
+
+		c.restore();
 	}
 
 	update() {
 		this.draw();
 		this.x += this.velocity.x;
 		this.y += this.velocity.y;
+		this.velocityMagnitude = Math.hypot(this.velocity.x, this.velocity.y);
 	}
 }
 
@@ -210,7 +227,11 @@ function animate(timestamp) {
 	} else {
 		const deltaTime = timestamp - prevTimestamp;
 		if(deltaTime > 2100 - player.score * 7) {
-			spawnEnemy();
+			if(player.score >= 15 && Math.random() < 0.1) {
+				spawnEnemy("huge");
+			} else {
+				spawnEnemy();
+			}
 			prevTimestamp = timestamp;
 		}
 	}
@@ -257,13 +278,17 @@ function animate(timestamp) {
 			}, 0)
 		}
 	})
-	
-	if(player.score > 0 && player.score % 11 === 0 && !upgradeModalActive) {
+
+
+	if(player.score === upgradeLevels[player.currentUpgradeIndex] && !upgradeModalActive) {
 		upgradeSound.currentTime = 0;
 		upgradeSound.play();
+
+		player.currentUpgradeIndex++;
+
 		generateUpgradeModal();
 		triggerUpgradeModal();
-		player.score+=0.1; //to prevent the modal from triggering multiple times for the same score
+		// player.score+=0.1; //to prevent the modal from triggering multiple times for the same score
 	}
 
 
@@ -338,10 +363,18 @@ function animate(timestamp) {
 						gsap.to(enemy, {
 							radius: enemy.radius - player.damageDealt
 						})
+
+						const enemyMomentum = Math.hypot(enemy.velocity.x, enemy.velocity.y)*enemy.radius;
+						const projectileMomentum = Math.hypot(projectile.velocity.x, projectile.velocity.y)*projectile.radius;
 						
+						console.log(`Enemy momentum: ${enemyMomentum}, Projectile momentum: ${projectileMomentum}`);
+
+
 						// apply knockback to the enemy based on the projectile's velocity and rotation multiplier
-						enemy.velocity.x += projectile.velocity.x/(20 - player.rotationMultiplier*1.9);
-						enemy.velocity.y += projectile.velocity.y/(20 - player.rotationMultiplier*1.9);
+						if(projectileMomentum > enemyMomentum) {
+							enemy.velocity.x += projectile.velocity.x/(20 - player.rotationMultiplier*1.9);
+							enemy.velocity.y += projectile.velocity.y/(20 - player.rotationMultiplier*1.9);
+						}
 						enemy.immunityFrames = 8; // set immunity frames to 8 to prevent immediate re-hit
 					} else {
 						bellSound.currentTime = 0;
@@ -391,10 +424,10 @@ function animate(timestamp) {
 	scoreDOM.innerHTML = Math.floor(player.score);
 }
 
-function spawnEnemy() {
+function spawnEnemy(size = "normal") {
 	let x
 	let y
-	const radius = Math.random() * (30 - 10) + 10;
+	const radius = size==="huge" ? 200 : Math.random() * (30 - 5) + 10;
 
 	if(Math.random() < 0.5) {
 		x = Math.random() < 0.5 ? -radius : canvas.width + radius;
@@ -409,9 +442,11 @@ function spawnEnemy() {
 
 	const angle = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
 
+	const speed = size==="huge" ? 0.3 : Math.random() + 0.5;
+
 	const velocity = {
-		x: Math.cos(angle),
-		y: Math.sin(angle)
+		x: Math.cos(angle) * speed,
+		y: Math.sin(angle) * speed
 	}
 
 	enemies.push(new Enemy(x, y, radius, color, velocity));
@@ -554,9 +589,9 @@ addEventListener('click', (event) => {
 
 	projectiles.push(
 		new Projectile(
-			canvas.width/2, 
-			canvas.height/2, 
-			5, 
+			player.x, 
+			player.y, 
+			4, 
 			'rgb(211, 211, 211)', 
 			{
 				x: Math.cos(angle) * speedFactor, 
@@ -588,19 +623,19 @@ addEventListener('keydown', (event) => {
 			animate();
 		}
 	}
-	// if(event.key === 'r' || event.key === 'R' && player.isAlive) {
-	// 	upgradeModalActive = !upgradeModalActive;
-	// 	if (upgradeModalActive) {
-	// 		upgradeSound.currentTime = 0;
-	// 		upgradeSound.play();
-	// 		generateUpgradeModal();
-	// 		triggerUpgradeModal();
-	// 	} else {
-	// 		upgradeSound.pause();
-	// 		upgradeModalDOM.style.visibility = 'hidden';
-	// 		animate();
-	// 	}
-	// }
+	if(event.key === 'r' || event.key === 'R' && player.isAlive) {
+		upgradeModalActive = !upgradeModalActive;
+		if (upgradeModalActive) {
+			upgradeSound.currentTime = 0;
+			upgradeSound.play();
+			generateUpgradeModal();
+			triggerUpgradeModal();
+		} else {
+			upgradeSound.pause();
+			upgradeModalDOM.style.visibility = 'hidden';
+			animate();
+		}
+	}
 })
 
 newGame();
