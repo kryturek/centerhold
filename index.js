@@ -82,9 +82,10 @@ class Player {
 		this.rotationSpeed = 0.03;
 		this.score = 0;
 		this.isAlive = true;
-		this.damageDealt = 7;
-		this.pierceChance = 0.1;
-		this.critChance = 0.1;
+		this.damageDealt = 5;
+		this.pierceChance = 0.01;
+		this.critChance = 0.01;
+		this.bounceChance = 0.3;
 	}
 	
 	draw() {
@@ -100,12 +101,23 @@ class Player {
 
 class Projectile {
 	constructor(x, y, radius, color, velocity) {
+		this.lifespan = 1000; // time measured in frames
+		this.isPiercing = Math.random() < player.pierceChance;
+		this.isCritical = Math.random() < player.critChance;
+		this.isBouncy = this.isPiercing && this.isCritical && Math.random() < player.bounceChance;
 		this.x = x;
 		this.y = y;
 		this.radius = radius;
-		this.color = color;
+		this.color = this.isBouncy ?
+						'rgb(255, 198, 10)' :
+							this.isCritical && this.isPiercing ?
+							'rgb(164, 7, 255)' :
+							this.isCritical ?
+							'rgb(192, 56, 56)' : 
+							this.isPiercing ?
+							'rgb(81, 128, 230)' :
+							color;
 		this.velocity = velocity;
-		this.isPiercing = Math.random() < player.pierceChance;
 	}
 
 	draw() {
@@ -119,6 +131,7 @@ class Projectile {
 		this.draw();
 		this.x += this.velocity.x;
 		this.y += this.velocity.y;
+		this.lifespan--;
 	}
 }
 
@@ -130,6 +143,7 @@ class Enemy {
 		this.radius = radius;
 		this.color = color;
 		this.velocity = velocity;
+		this.immunityFrames = 0;
 	}
 
 	draw() {
@@ -169,7 +183,7 @@ class Particle {
 	}
 }
 
-let player = new Player(canvas.width / 2, canvas.height / 2, 15, 'rgb(223, 223, 223)');
+let player;
 const projectiles = [];
 const enemies = [];
 const particles = [];
@@ -201,7 +215,31 @@ function animate(timestamp) {
 	player.draw();
 	projectiles.forEach((projectile, projectileIndex) => {
 		projectile.update();
-		if(
+
+		if(projectile.lifespan <= 0) {
+			setTimeout(() => {
+				projectiles.splice(projectileIndex, 1);
+			}, 0)
+			
+			return;
+		}
+
+		if(projectile.isBouncy) {
+			// Bounce off the walls
+			if (projectile.x < 0) {
+				projectile.x = 3;
+				projectile.velocity.x *= -1;
+			} else if (projectile.x > canvas.width) {
+				projectile.x = canvas.width - 3;
+				projectile.velocity.x *= -1;
+			} else if (projectile.y < 0) {
+				projectile.y = 3;
+				projectile.velocity.y *= -1;
+			} else if (projectile.y > canvas.height) {
+				projectile.y = canvas.height - 3;
+				projectile.velocity.y *= -1;
+			}
+		} else if(
 			projectile.x + projectile.radius < 0
 			|| projectile.x - projectile.radius > canvas.width
 			|| projectile.y + projectile.radius < 0
@@ -233,8 +271,12 @@ function animate(timestamp) {
 			enemies.splice(enemyIndex, 1);
 		}
 
-
+		// update enemy position
 		enemy.update();
+
+		// reduce immunity frames count by one each loop (frame) if greater than 0
+		if(enemy.immunityFrames > 0) enemy.immunityFrames--;
+
 		// enemy <-> player
 		const distancePlayer = Math.hypot(player.x - enemy.x, player.y - enemy.y);
 		if(distancePlayer - player.radius - enemy.radius < 1) {
@@ -272,7 +314,7 @@ function animate(timestamp) {
 			const distanceProjectileToPlayer = Math.hypot(player.x - projectile.x, player.y - projectile.y);
 			
 			if(
-				distanceProjectileToEnemy - enemy.radius - projectile.radius < 1
+				distanceProjectileToEnemy - enemy.radius - projectile.radius < 1 && enemy.immunityFrames === 0
 			) {
 				let knockout;
 				if(Math.random() < player.critChance) {
@@ -289,6 +331,7 @@ function animate(timestamp) {
 						
 						enemy.velocity.x += projectile.velocity.x/11;
 						enemy.velocity.y += projectile.velocity.y/11;
+						enemy.immunityFrames = 8; // set immunity frames to 8 to prevent immediate re-hit
 					} else {
 						bellSound.currentTime = 0;
 						bellSound.play();
@@ -312,13 +355,10 @@ function animate(timestamp) {
 						player.score++;
 						player.score = Math.floor(player.score);
 
-					}						
-
-					if(projectile.isPiercing && knockout) {
-						//do nothing, projectile pierces enemy
-					} else {
-						projectiles.splice(projectileIndex, 1);
 					}
+
+					// remove projectile if it is not piercing
+					if(!projectile.isPiercing) projectiles.splice(projectileIndex, 1);
 				}, 0)
 			}
 		})
@@ -561,7 +601,7 @@ startButtonDOM.addEventListener('click', () => {
 })
 
 function setup() {
-	player = new Player(canvas.width / 2, canvas.height / 2, 15, 'rgb(223, 223, 223)');
+	player = new Player(canvas.width / 2, canvas.height / 2, 25, 'rgb(223, 223, 223)');
 
 	projectiles.length = 0;
 	enemies.length = 0;
