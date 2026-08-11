@@ -33,42 +33,48 @@ const upgradePool = [
     label: 'Damage dealt',
     changeAmount: Math.floor(Math.random() * 5) + 2,
     icon: 'assets/icons/damage.png',
-    unit: ''
+    unit: '',
+	limit: 50
   },
   {
     key: 'pierceChance',
     label: 'Pierce chance',
     changeAmount: Math.floor((Math.random() * 15) + 2) / 100,
     icon: 'assets/icons/pierce.png',
-    unit: '%'
+    unit: '%',
+	limit: 0.5
   },
   {
     key: 'critChance',
     label: 'Crit chance',
     changeAmount: Math.floor((Math.random() * 11) + 2) / 100,
     icon: 'assets/icons/crit.png',
-    unit: '%'
+    unit: '%',
+	limit: 0.5
   },
   {
     key: 'radius',
     label: 'Size increase',
-    changeAmount: Math.floor(Math.random() * 7) + 2,
+    changeAmount: Math.floor(Math.random() * 5) + 2,
     icon: 'assets/icons/grow.png',
-    unit: 'px'
+    unit: 'px',
+	limit: 50
   },
   {
     key: 'radius',
     label: 'Size decrease',
-    changeAmount: -Math.floor(Math.random() * 7) + 2, // note the minus in front
+    changeAmount: -Math.floor(Math.random() * 5) + 2, // note the minus in front
     icon: 'assets/icons/shrink.png',
-    unit: 'px'
+    unit: 'px',
+	limit: 10
   },
   {
-	key: 'rotationSpeed',
+	key: 'rotationMultiplier',
 	label: 'Rotation speed',
-	changeAmount: Math.floor((Math.random() * 25) + 1) / 100,
+	changeAmount: 1,
 	icon: 'assets/icons/rotate.png',
-	unit: '%'
+	unit: '',
+	limit: 10
   }
 ];
 
@@ -79,7 +85,8 @@ class Player {
 		this.radius = radius;
 		this.color = color;
 		this.rotation = 0;
-		this.rotationSpeed = 0.03;
+		this.rotationSpeed = 0.01;
+		this.rotationMultiplier = 1;
 		this.score = 0;
 		this.isAlive = true;
 		this.damageDealt = 5;
@@ -89,7 +96,7 @@ class Player {
 	}
 	
 	draw() {
-		this.rotation += this.rotationSpeed;
+		this.rotation += this.rotationSpeed * this.rotationMultiplier;
 
 		c.save();
 		c.translate(this.x, this.y);
@@ -317,26 +324,31 @@ function animate(timestamp) {
 				distanceProjectileToEnemy - enemy.radius - projectile.radius < 1 && enemy.immunityFrames === 0
 			) {
 				let knockout;
-				if(Math.random() < player.critChance) {
+				// if the projectile is critical, it's an immediate knockout
+				if(projectile.isCritical) {
 					knockout = true;
 				} else {
+					// if the enemy's radius after taking damage is less than or equal to 7, it's a knockout
 					enemy.radius - player.damageDealt <= 7 ? knockout = true : knockout = false;
 				}
 
 				setTimeout(() => {
+					// if the enemy is not knocked out, reduce its radius and apply knockback
 					if (!knockout) {
 						gsap.to(enemy, {
 							radius: enemy.radius - player.damageDealt
 						})
 						
-						enemy.velocity.x += projectile.velocity.x/11;
-						enemy.velocity.y += projectile.velocity.y/11;
+						// apply knockback to the enemy based on the projectile's velocity and rotation multiplier
+						enemy.velocity.x += projectile.velocity.x/(20 - player.rotationMultiplier*1.9);
+						enemy.velocity.y += projectile.velocity.y/(20 - player.rotationMultiplier*1.9);
 						enemy.immunityFrames = 8; // set immunity frames to 8 to prevent immediate re-hit
 					} else {
 						bellSound.currentTime = 0;
 						bellSound.play();
-	
-						 for(let i=0; i<enemy.radius; i++){
+						
+						// create particles for the enemy knockout effect
+						for(let i=0; i<enemy.radius; i++){
 							particles.push(
 								new Particle(
 									enemy.x,
@@ -350,11 +362,11 @@ function animate(timestamp) {
 								))
 								
 						}
-	
+						
+						// remove the enemy from the enemies array and increase the player's score
 						enemies.splice(enemyIndex, 1);
 						player.score++;
 						player.score = Math.floor(player.score);
-
 					}
 
 					// remove projectile if it is not piercing
