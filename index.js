@@ -88,7 +88,7 @@ class Player {
 		this.rotation = 0;
 		this.rotationSpeed = 0.01;
 		this.rotationMultiplier = 1;
-		this.score = 0;
+		this.score = 200;
 		this.currentUpgradeIndex = 0;
 		this.isAlive = true;
 		this.damageDealt = 5;
@@ -479,7 +479,8 @@ function spawnEnemy(size = "normal") {
 
 	const angle = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
 
-	const speed = size==="huge" ? 0.3 : Math.random() + 0.3;
+	const progressiveSpeedFactor = player.score/600;
+	const speed = size==="huge" ? 0.3 : Math.random() + 0.3 + progressiveSpeedFactor;
 
 	const velocity = {
 		x: Math.cos(angle) * speed,
