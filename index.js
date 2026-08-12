@@ -24,10 +24,17 @@ const upgradeSound = new Audio('./assets/yoshiyuki_tatsuya-melting-excitement-51
 const playerImage = new Image();
 playerImage.src = './assets/player.svg';
 
+const enemyImage = new Image();
+enemyImage.src = './assets/enemy.svg';
+
+const enemyHugeImage = new Image();
+enemyHugeImage.src = './assets/enemy_huge.svg';
+
 let paused = false;
 let upgradeModalActive = false;
 
-const upgradeLevels = [3, 7, 12, 20, 30, 50, 75, 100, 140, 180, 250, 350, 500, 750, 1000, 1500, 2000, 3000, 4000, 5000];
+const upgradeLevels = [3, 7, 12, 18, 25, 33, 42, 52, 64, 80, 97, 120, 150, 190, 230, 275, 320, 400, 500, 650, 800, 1000, 1300, 1600, 2000];
+
 
 const upgradePool = [
   {
@@ -41,7 +48,7 @@ const upgradePool = [
   {
     key: 'pierceChance',
     label: 'Pierce chance',
-    changeAmount: 0.05,
+    changeAmount: 0.03,
     icon: 'assets/icons/pierce.png',
     unit: '%',
 	limit: 0.5
@@ -49,18 +56,10 @@ const upgradePool = [
   {
     key: 'critChance',
     label: 'Crit chance',
-    changeAmount: 0.03,
+    changeAmount: 0.02,
     icon: 'assets/icons/crit.png',
     unit: '%',
 	limit: 0.5
-  },
-  {
-    key: 'radius',
-    label: 'Size increase',
-    changeAmount: 5,
-    icon: 'assets/icons/grow.png',
-    unit: 'px',
-	limit: 50
   },
   {
 	key: 'rotationMultiplier',
@@ -69,6 +68,14 @@ const upgradePool = [
 	icon: 'assets/icons/rotate.png',
 	unit: '',
 	limit: 10
+  },
+  {
+	key: 'multishotChance',
+	label: 'Multishot chance',
+	changeAmount: 0.03,
+	icon: 'assets/icons/juggler.png',
+	unit: '%',
+	limit: 1
   }
 ];
 
@@ -85,9 +92,10 @@ class Player {
 		this.currentUpgradeIndex = 0;
 		this.isAlive = true;
 		this.damageDealt = 5;
-		this.pierceChance = 0.03;
+		this.pierceChance = 0.02;
 		this.critChance = 0.02;
-		this.bounceChance = 0.3;
+		this.bounceChance = 0.3; // chance for a projectile to bounce off walls if it is both piercing and critical
+		this.multishotChance = 0.02;
 	}
 	
 	draw() {
@@ -109,7 +117,7 @@ class Projectile {
 		this.isBouncy = this.isPiercing && this.isCritical && Math.random() < player.bounceChance;
 		this.x = x;
 		this.y = y;
-		this.radius = radius;
+		this.radius = radius + (this.isCritical || this.isPiercing ? 1 : 0);
 		this.color = this.isBouncy ?
 						`rgb(255, 198, 10)` :
 							this.isCritical && this.isPiercing ?
@@ -126,7 +134,11 @@ class Projectile {
 		c.save();
 		c.beginPath();
 		c.shadowColor = this.color;
-		c.shadowBlur = 5;
+		if(this.isBouncy) {
+			c.shadowBlur = 20;
+		} else {
+			c.shadowBlur = 5;
+		}
 		c.fillStyle = this.color;
 		c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
 		c.fill();
@@ -143,7 +155,7 @@ class Projectile {
 
 
 class Enemy {
-	constructor(x, y, radius, color, velocity) {
+	constructor(x, y, radius, color, velocity, isHuge = false) {
 		this.x = x;
 		this.y = y;
 		this.radius = radius;
@@ -152,6 +164,9 @@ class Enemy {
 		this.immunityFrames = 0;
 		this.rotation = 0;
 		this.rotationSpeed = 0.01;
+		this.isHuge = isHuge;
+
+		// this will be the magnitude of the velocity vector, used to scale the rotation speed
 		this.velocityMagnitude = 1;
 	}
 
@@ -162,16 +177,22 @@ class Enemy {
 		c.translate(this.x, this.y);
 		c.rotate(this.rotation);
 
-		c.beginPath();
-		c.fillStyle = this.color;
-		c.arc(0, 0, this.radius, 0, Math.PI * 2);
-		c.fill();
+		// c.beginPath();
+		// c.fillStyle = this.color;
+		// c.arc(0, 0, this.radius, 0, Math.PI * 2);
+		// c.fill();
 
-		c.beginPath();
-		c.fillStyle = 'rgba(255, 255, 255, 0.2)';
-		// c.arc(Math.random()*this.radius*0.2+this.radius*0.2, 0, Math.random*this.radius*0.5, 0, Math.PI * 2);
-		c.arc(this.radius*0.3, 0, this.radius*0.5, 0, Math.PI * 2);
-		c.fill();
+		// c.beginPath();
+		// c.fillStyle = 'rgba(255, 255, 255, 0.2)';
+		// c.arc(this.radius*0.3, 0, this.radius*0.5, 0, Math.PI * 2);
+		// c.fill();
+
+		c.filter = `hue-rotate(90deg) drop-shadow(0px 0px 4px ${this.color})`;
+		if(this.isHuge) {
+			c.drawImage(enemyHugeImage, -this.radius, -this.radius, this.radius * 2, this.radius * 2);
+		} else {
+			c.drawImage(enemyImage, -this.radius, -this.radius, this.radius * 2, this.radius * 2);
+		}
 
 		c.restore();
 	}
@@ -226,8 +247,21 @@ function animate(timestamp) {
 		prevTimestamp = timestamp;
 	} else {
 		const deltaTime = timestamp - prevTimestamp;
-		if(deltaTime > 2100 - player.score * 7) {
-			if(player.score >= 15 && Math.random() < 0.1) {
+		const theNumberISubtract = () => {
+			if(player.score < 15) return 0;
+			if(player.score < 30) return 200;
+			if(player.score < 50) return 300;
+			if(player.score < 53) return 1200; // a curveball L0L
+			if(player.score < 80) return 500;
+			if(player.score < 120) return 600;
+			if(player.score < 200) return 700;
+			if(player.score < 300) return 900;
+			if(player.score < 500) return 1000;
+			return 1100;
+		}
+
+		if(deltaTime > 2100 - theNumberISubtract()) {
+			if(player.score >= 15 && Math.random() < 0.05) {
 				spawnEnemy("huge");
 			} else {
 				spawnEnemy();
@@ -349,12 +383,12 @@ function animate(timestamp) {
 				distanceProjectileToEnemy - enemy.radius - projectile.radius < 1 && enemy.immunityFrames === 0
 			) {
 				let knockout;
-				// if the projectile is critical, it's an immediate knockout
-				if(projectile.isCritical) {
+				// if the projectile is critical and the enemy is not "huge", it's a knockout
+				if(projectile.isCritical && !enemy.isHuge) {
 					knockout = true;
 				} else {
-					// if the enemy's radius after taking damage is less than or equal to 7, it's a knockout
-					enemy.radius - player.damageDealt <= 7 ? knockout = true : knockout = false;
+					// if the enemy's radius after taking damage is less than or equal to 10, it's a knockout
+					enemy.radius - player.damageDealt <= 15 ? knockout = true : knockout = false;
 				}
 
 				setTimeout(() => {
@@ -364,16 +398,15 @@ function animate(timestamp) {
 							radius: enemy.radius - player.damageDealt
 						})
 
-						const enemyMomentum = Math.hypot(enemy.velocity.x, enemy.velocity.y)*enemy.radius;
-						const projectileMomentum = Math.hypot(projectile.velocity.x, projectile.velocity.y)*projectile.radius;
-						
-						console.log(`Enemy momentum: ${enemyMomentum}, Projectile momentum: ${projectileMomentum}`);
-
-
-						// apply knockback to the enemy based on the projectile's velocity and rotation multiplier
-						if(projectileMomentum > enemyMomentum) {
-							enemy.velocity.x += projectile.velocity.x/(20 - player.rotationMultiplier*1.9);
-							enemy.velocity.y += projectile.velocity.y/(20 - player.rotationMultiplier*1.9);
+						if(!enemy.isHuge) {
+							const enemyMomentum = Math.hypot(enemy.velocity.x, enemy.velocity.y)*enemy.radius;
+							const projectileMomentum = Math.hypot(projectile.velocity.x, projectile.velocity.y)*projectile.radius;
+	
+							// apply knockback to a normal-sized enemy based on the projectile's velocity and rotation multiplier
+							if(projectileMomentum > enemyMomentum) {
+								enemy.velocity.x += projectile.velocity.x/(20 - player.rotationMultiplier*1.9);
+								enemy.velocity.y += projectile.velocity.y/(20 - player.rotationMultiplier*1.9);
+							}
 						}
 						enemy.immunityFrames = 8; // set immunity frames to 8 to prevent immediate re-hit
 					} else {
@@ -425,9 +458,13 @@ function animate(timestamp) {
 }
 
 function spawnEnemy(size = "normal") {
+	const maxSizeNormal = 45;
+	const minSizeNormal = 15;
+
+	let isHuge = size === "huge" ? true : false;
 	let x
 	let y
-	const radius = size==="huge" ? 200 : Math.random() * (30 - 5) + 10;
+	const radius = size==="huge" ? Math.random()*50 + 200 : Math.random() * (maxSizeNormal - minSizeNormal) + minSizeNormal;
 
 	if(Math.random() < 0.5) {
 		x = Math.random() < 0.5 ? -radius : canvas.width + radius;
@@ -442,14 +479,14 @@ function spawnEnemy(size = "normal") {
 
 	const angle = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
 
-	const speed = size==="huge" ? 0.3 : Math.random() + 0.5;
+	const speed = size==="huge" ? 0.3 : Math.random() + 0.3;
 
 	const velocity = {
 		x: Math.cos(angle) * speed,
 		y: Math.sin(angle) * speed
 	}
 
-	enemies.push(new Enemy(x, y, radius, color, velocity));
+	enemies.push(new Enemy(x, y, radius, color, velocity, isHuge));
 }
 
 function gameOver() {
@@ -586,18 +623,36 @@ addEventListener('click', (event) => {
 	//speed multiplier capped at 5
 	const speedFactor = hypot/(canvas.width/2) * 5;
 
+	if(Math.random() < player.multishotChance) {
+		const multishotAngles = [-0.2, -0.1, 0, 0.1, 0.2];
+		multishotAngles.forEach((angleOffset) => {
+			projectiles.push(
+				new Projectile(
+					player.x, 
+					player.y,
+					3,
+					'rgb(211, 211, 211)',
+					{
+						x: Math.cos(angle + angleOffset) * speedFactor,
+						y: Math.sin(angle + angleOffset) * speedFactor
+					}
+			));
+		})
+	} else {
+		projectiles.push(
+			new Projectile(
+				player.x, 
+				player.y, 
+				3, 
+				'rgb(211, 211, 211)', 
+				{
+					x: Math.cos(angle) * speedFactor, 
+					y: Math.sin(angle) * speedFactor
+				}
+			));
+	}
 
-	projectiles.push(
-		new Projectile(
-			player.x, 
-			player.y, 
-			4, 
-			'rgb(211, 211, 211)', 
-			{
-				x: Math.cos(angle) * speedFactor, 
-				y: Math.sin(angle) * speedFactor
-			}
-		));
+
 })
 
 addEventListener('resize', () => {
