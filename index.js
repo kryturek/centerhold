@@ -64,7 +64,7 @@ const upgradePool = [
   {
 	key: 'rotationMultiplier',
 	label: 'Rotation speed',
-	changeAmount: 1,
+	changeAmount: 3,
 	icon: 'assets/icons/rotate.png',
 	unit: '',
 	limit: 10
@@ -279,7 +279,7 @@ function animate(timestamp) {
 			if(player.score < 15) return 0;
 			if(player.score < 30) return 200;
 			if(player.score < 50) return 300;
-			if(player.score < 55) return 1200; // a curveball L0L
+			if(player.score < 53) return 1000; // a curveball L0L
 			if(player.score < 80) return 500;
 			if(player.score < 120) return 600;
 			if(player.score < 200) return 700;
@@ -288,7 +288,7 @@ function animate(timestamp) {
 			return 1100;
 		}
 
-		if(deltaTime > 2100 - theNumberISubtract()) {
+		if(deltaTime > 2400 - theNumberISubtract()) {
 			if(
 				player.score >= 55 && Math.random() < 0.1
 				||
@@ -440,16 +440,16 @@ function animate(timestamp) {
 							radius: enemy.radius - damageValue,
 						})
 
-						if(!enemy.isHuge) {
-							const enemyMomentum = Math.hypot(enemy.velocity.x, enemy.velocity.y)*enemy.radius;
-							const projectileMomentum = Math.hypot(projectile.velocity.x, projectile.velocity.y)*projectile.radius;
-	
-							// apply knockback to a normal-sized enemy based on the projectile's velocity and rotation multiplier
-							if(projectileMomentum > enemyMomentum) {
-								enemy.velocity.x += projectile.velocity.x/(20 - player.rotationMultiplier*1.9);
-								enemy.velocity.y += projectile.velocity.y/(20 - player.rotationMultiplier*1.9);
-							}
+						const enemyMomentum = Math.hypot(enemy.velocity.x, enemy.velocity.y)*enemy.radius;
+						const projectileMomentum = Math.hypot(projectile.velocity.x, projectile.velocity.y)*projectile.radius;
+
+						// apply knockback to an enemy based on the projectile's velocity and rotation multiplier
+						if(projectileMomentum * player.rotationMultiplier > enemyMomentum) {
+							const denominator = 20 - player.rotationMultiplier > 0 ? 20 - player.rotationMultiplier : 1; // prevent division by zero
+							enemy.velocity.x += projectile.velocity.x/denominator;
+							enemy.velocity.y += projectile.velocity.y/denominator;
 						}
+
 						enemy.immunityFrames = 8; // set immunity frames to 8 to prevent immediate re-hit
 					} else {
 						bellSound.currentTime = 0;
