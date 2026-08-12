@@ -88,7 +88,7 @@ class Player {
 		this.rotation = 0;
 		this.rotationSpeed = 0.01;
 		this.rotationMultiplier = 1;
-		this.score = 200;
+		this.score = 0;
 		this.currentUpgradeIndex = 0;
 		this.isAlive = true;
 		this.damageDealt = 5;
@@ -228,10 +228,38 @@ class Particle {
 	}
 }
 
+class DamageNumber {
+	constructor(x, y, value, isCrit) {
+		this.x = x + (Math.random() - 0.5) * 20; // random offset of -+ 0.5 pixels times 20 gives a range of -10 to +10
+		this.y = y;
+		this.value = value;
+		this.alpha = 1;
+		this.vy = -1.2; // vertical velocity, negative to move upwards
+		this.isCrit = isCrit;
+	}
+
+	draw() {
+		c.save();
+		c.globalAlpha = this.alpha; // a value of 1 is fully opaque, 0 is fully transparent
+		c.fillStyle = this.isCrit ? 'rgb(192, 56, 56)' : 'rgb(255, 255, 255)'; // red for crits, hwhite for normal hits
+		c.font = `${this.isCrit ? 'bold 20px' : '16px'} monospace`;
+		c.textAlign = 'center';
+		c.fillText(this.value, this.x, this.y);
+		c.restore();
+	}
+
+	update() {
+		this.draw();
+		this.y += this.vy;
+		this.alpha -= 0.01; // fade out over 50 frames (1/0.02 = 50)
+	}
+}
+
 let player;
 const projectiles = [];
 const enemies = [];
 const particles = [];
+const damageNumbers = [];
 
 let animationID;
 let prevTimestamp;
@@ -251,7 +279,7 @@ function animate(timestamp) {
 			if(player.score < 15) return 0;
 			if(player.score < 30) return 200;
 			if(player.score < 50) return 300;
-			if(player.score < 53) return 1200; // a curveball L0L
+			if(player.score < 55) return 1200; // a curveball L0L
 			if(player.score < 80) return 500;
 			if(player.score < 120) return 600;
 			if(player.score < 200) return 700;
@@ -261,7 +289,11 @@ function animate(timestamp) {
 		}
 
 		if(deltaTime > 2100 - theNumberISubtract()) {
-			if(player.score >= 15 && Math.random() < 0.05) {
+			if(
+				player.score >= 55 && Math.random() < 0.1
+				||
+				player.score >= 15 && Math.random() < 0.05
+			) {
 				spawnEnemy("huge");
 			} else {
 				spawnEnemy();
@@ -383,19 +415,29 @@ function animate(timestamp) {
 				distanceProjectileToEnemy - enemy.radius - projectile.radius < 1 && enemy.immunityFrames === 0
 			) {
 				let knockout;
+				let damageValue;
 				// if the projectile is critical and the enemy is not "huge", it's a knockout
 				if(projectile.isCritical && !enemy.isHuge) {
 					knockout = true;
+				} else if (projectile.isCritical && enemy.isHuge) {
+					damageValue = Math.round(player.damageDealt * 3 + Math.random());
+					enemy.radius - damageValue <= 25 ? knockout = true : knockout = false;
 				} else {
-					// if the enemy's radius after taking damage is less than or equal to 10, it's a knockout
-					enemy.radius - player.damageDealt <= 15 ? knockout = true : knockout = false;
+					damageValue = Math.round(player.damageDealt + Math.random());
+					// if the enemy's radius after taking damage is less than or equal to 15, it's a knockout
+					enemy.radius - damageValue <= 15 ? knockout = true : knockout = false;
 				}
 
 				setTimeout(() => {
+					// create a damage number at the enemy's position
+					const damageText = knockout ? (enemy.isHuge ? damageValue : '💀') : damageValue;
+					damageNumbers.push(new DamageNumber(enemy.x, enemy.y, damageText, projectile.isCritical));
+
+
 					// if the enemy is not knocked out, reduce its radius and apply knockback
 					if (!knockout) {
 						gsap.to(enemy, {
-							radius: enemy.radius - player.damageDealt
+							radius: enemy.radius - damageValue,
 						})
 
 						if(!enemy.isHuge) {
@@ -454,11 +496,19 @@ function animate(timestamp) {
 		}
 	})
 
+
+	damageNumbers.forEach((damageNumber, index) => {
+		damageNumber.update();
+		if(damageNumber.alpha <= 0) {
+			damageNumbers.splice(index, 1);
+		}
+	})
+
 	scoreDOM.innerHTML = Math.floor(player.score);
 }
 
 function spawnEnemy(size = "normal") {
-	const maxSizeNormal = 45;
+	const maxSizeNormal = player.score < 250 ? 40 + player.score/8 : 70;
 	const minSizeNormal = 15;
 
 	let isHuge = size === "huge" ? true : false;
@@ -479,8 +529,8 @@ function spawnEnemy(size = "normal") {
 
 	const angle = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
 
-	const progressiveSpeedFactor = player.score/600;
-	const speed = size==="huge" ? 0.3 : Math.random() + 0.3 + progressiveSpeedFactor;
+	const progressiveSpeedFactor = player.score/500;
+	const speed = size==="huge" ? 0.3 : Math.random() + 0.2 + progressiveSpeedFactor;
 
 	const velocity = {
 		x: Math.cos(angle) * speed,
@@ -679,19 +729,21 @@ addEventListener('keydown', (event) => {
 			animate();
 		}
 	}
-	if(event.key === 'r' || event.key === 'R' && player.isAlive) {
-		upgradeModalActive = !upgradeModalActive;
-		if (upgradeModalActive) {
-			upgradeSound.currentTime = 0;
-			upgradeSound.play();
-			generateUpgradeModal();
-			triggerUpgradeModal();
-		} else {
-			upgradeSound.pause();
-			upgradeModalDOM.style.visibility = 'hidden';
-			animate();
-		}
-	}
+	// cheaty upgrade modal trigger for testing purposes
+
+	// if(event.key === 'r' || event.key === 'R' && player.isAlive) {
+	// 	upgradeModalActive = !upgradeModalActive;
+	// 	if (upgradeModalActive) {
+	// 		upgradeSound.currentTime = 0;
+	// 		upgradeSound.play();
+	// 		generateUpgradeModal();
+	// 		triggerUpgradeModal();
+	// 	} else {
+	// 		upgradeSound.pause();
+	// 		upgradeModalDOM.style.visibility = 'hidden';
+	// 		animate();
+	// 	}
+	// }
 })
 
 newGame();
@@ -712,6 +764,7 @@ function setup() {
 
 	setQuote();
 	generateUpgradeModal();
+	damageNumbers.length = 0;
 }
 
 function newGame() {
