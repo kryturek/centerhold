@@ -28,7 +28,10 @@ const enemyImage = new Image();
 enemyImage.src = './assets/enemy.svg';
 
 const enemyHugeImage = new Image();
-enemyHugeImage.src = './assets/enemy_huge.svg';
+enemyHugeImage.src = './assets/enemy_huge2.svg';
+
+const enemyHomingImage = new Image();
+enemyHomingImage.src = './assets/homing_enemy.svg';
 
 let paused = false;
 let upgradeModalActive = false;
@@ -64,7 +67,7 @@ const upgradePool = [
   {
 	key: 'rotationMultiplier',
 	label: 'Rotation speed',
-	changeAmount: 3,
+	changeAmount: 2,
 	icon: 'assets/icons/rotate.png',
 	unit: '',
 	limit: 10
@@ -205,6 +208,71 @@ class Enemy {
 	}
 }
 
+class HomingEnemy extends Enemy {
+	constructor(x, y, radius, color, velocity, isHuge = false) {
+		super(x, y, radius, color, velocity, isHuge);
+		this.acceleration = {
+			x: 0,
+			y: 0
+		}
+		this.homingPower = 0.005; // how quickly the homing enemy adjusts its velocity towards the player
+		// this.homingAccelerationStep = 0.0001
+		this.drag = 0.999; // drag factor to gradually slow down the homing enemy's velocity
+		this.maxSpeed = 2.5; // maximum speed the homing enemy can reach
+	}
+
+	draw() {
+		this.rotation += this.rotationSpeed * this.velocityMagnitude;
+
+		c.save();
+		c.translate(this.x, this.y);
+		c.rotate(this.rotation);
+
+		c.filter = `hue-rotate(90deg) drop-shadow(0px 0px 4px ${this.color})`;
+		c.drawImage(enemyHomingImage, -this.radius, -this.radius, this.radius * 2, this.radius * 2);
+
+		c.restore();
+	}
+
+	normalizeHomingVector() {
+		const dx = player.x - this.x;
+		const dy = player.y - this.y;
+		const magnitude = Math.hypot(dx, dy);
+		return {
+			x: (dx / magnitude) * this.homingPower,
+			y: (dy / magnitude) * this.homingPower
+		};
+	}
+
+	update() {
+		this.draw();
+
+		// this.homingPower += this.homingAccelerationStep; // gradually increase the homing power over time
+
+		this.acceleration = this.normalizeHomingVector();
+		this.velocity.x += this.acceleration.x;
+		this.velocity.y += this.acceleration.y;
+
+		// apply drag to the velocity to prevent it from making circles indefinitely
+		this.velocity.x *= this.drag;
+		this.velocity.y *= this.drag;
+
+		// limit the speed to maxSpeed
+		const speed = Math.hypot(this.velocity.x, this.velocity.y);
+		if (speed > this.maxSpeed) {
+			this.velocity.x = (this.velocity.x / speed) * this.maxSpeed;
+			this.velocity.y = (this.velocity.y / speed) * this.maxSpeed;
+		}
+
+		this.x += this.velocity.x;
+		this.y += this.velocity.y;
+		this.velocityMagnitude = speed;
+	}
+
+}
+
+
+
 class Particle {
 	constructor(x, y, radius, color, velocity) {
 		this.x = x;
@@ -298,6 +366,17 @@ function animate(timestamp) {
 			} else {
 				spawnEnemy();
 			}
+
+			if(
+				player.score >= 200 && Math.random() < 0.1
+				|| player.score >= 100 && Math.random() < 0.05
+				|| player.score === 85
+				|| player.score === 70
+				|| player.score === 45
+			) {
+				spawnHomingEnemy();
+			}
+
 			prevTimestamp = timestamp;
 		}
 	}
@@ -361,10 +440,10 @@ function animate(timestamp) {
 	enemies.forEach((enemy, enemyIndex) => {
 		//if enemy out of bounds remove it
 		if(
-			enemy.x - enemy.radius > canvas.width + 100
-			|| enemy.x + enemy.radius < -100
-			|| enemy.y - enemy.radius > canvas.height + 100
-			|| enemy.y + enemy.radius < -100
+			enemy.x - enemy.radius > 2*canvas.width
+			|| enemy.x + enemy.radius < -canvas.width
+			|| enemy.y - enemy.radius > 2*canvas.height
+			|| enemy.y + enemy.radius < -canvas.height
 		) {
 			enemies.splice(enemyIndex, 1);
 		}
@@ -443,7 +522,11 @@ function animate(timestamp) {
 						const enemyMomentum = Math.hypot(enemy.velocity.x, enemy.velocity.y)*enemy.radius;
 						const projectileMomentum = Math.hypot(projectile.velocity.x, projectile.velocity.y)*projectile.radius;
 
+						console.log(`Enemy momentum: ${enemyMomentum}, Projectile momentum: ${projectileMomentum}, Player rotation multiplier: ${player.rotationMultiplier}`);
+
 						// apply knockback to an enemy based on the projectile's velocity and rotation multiplier
+						// if the projectile's momentum is greater than the enemy's momentum, apply knockback
+						// powerful enemies don't receive knockback unless player's rotation multiplier is high enough to overcome the enemy's momentum
 						if(projectileMomentum * player.rotationMultiplier > enemyMomentum) {
 							const denominator = 20 - player.rotationMultiplier > 0 ? 20 - player.rotationMultiplier : 1; // prevent division by zero
 							enemy.velocity.x += projectile.velocity.x/denominator;
@@ -529,7 +612,7 @@ function spawnEnemy(size = "normal") {
 
 	const angle = Math.atan2(canvas.height/2 - y, canvas.width/2 - x);
 
-	const progressiveSpeedFactor = player.score/500;
+	const progressiveSpeedFactor = player.score/300;
 	const speed = size==="huge" ? 0.3 : Math.random() + 0.2 + progressiveSpeedFactor;
 
 	const velocity = {
@@ -538,6 +621,37 @@ function spawnEnemy(size = "normal") {
 	}
 
 	enemies.push(new Enemy(x, y, radius, color, velocity, isHuge));
+}
+
+function spawnHomingEnemy() {
+	const maxSize = player.score < 250 ? 40 + player.score/8 : 70;
+	const minSize = 15;
+
+	let x, xvel
+	let y, yvel
+	const radius = Math.random() * (maxSize - minSize) + minSize;
+
+	if(Math.random() < 0.5) {
+		x = Math.random() < 0.5 ? -radius : canvas.width + radius;
+		y = Math.random() * canvas.height;
+		xvel = 0;
+		yvel = (Math.random()-0.5) * 5 + 3;
+	} else {
+		x = Math.random() * canvas.width;
+		y = Math.random() < 0.5 ? -radius : canvas.height + radius;
+		xvel = (Math.random()-0.5) * 3 + 3;
+		yvel = 0;
+	}
+
+	const hue = Math.floor(Math.random()*361)
+	const color = `hsl(${hue}, 70%, 50%)`
+
+	const velocity = {
+		x: xvel, 
+		y: yvel
+	}
+
+	enemies.push(new HomingEnemy(x, y, radius, color, velocity));
 }
 
 function gameOver() {
